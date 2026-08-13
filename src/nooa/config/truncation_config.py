@@ -5,7 +5,7 @@
 Two layers of bounds:
 
 1. **Whole-context token budget** (optional, applied at assembly):
-   ``max_context_tokens``, ``max_event_tokens``.
+   ``max_context_tokens``.
 2. **Sub-configs by mechanism**:
    - ``capture`` (head/tail truncation of raw text streams via
      ``TruncatingStringIO`` — used for execute_python's stdout / stderr /
@@ -25,6 +25,14 @@ Two layers of bounds:
      intentionally by the author, often large (e.g. ``doc(self)``,
      formatted state). Defaults to fully unlimited; whole-block eviction
      handles overflow at the assembly step.
+
+**Not currently enforced:** ``max_event_tokens`` and ``min_preserved_events``
+are accepted and validated, but read by nothing — there is no event-level
+eviction for them to bound, so setting either has no effect. Use
+``max_context_tokens``, which is what the assembly-step eviction actually
+reads. Event-level eviction is planned as part of the context API refactor;
+the two fields are kept rather than removed so that setting them stays a
+visible no-op instead of a silently swallowed keyword.
 """
 
 from typing import Annotated
@@ -181,13 +189,27 @@ class TruncationConfig(BaseModel):
     max_context_tokens: Annotated[int | None, Field(description="Total context token budget")] = (
         None
     )
-    max_event_tokens: Annotated[int | None, Field(description="Total event token budget")] = None
-    # L4 eviction: never evict fewer than this many recent events. Guarantees
-    # the model always sees its current Task + recent reasoning even when older
-    # events get evicted to fit the budget.
+    # Inert: no event-level eviction exists, so this bounds nothing. Retained
+    # (not deleted) because model_config lacks extra="forbid" — removing the
+    # field would swallow an operator's setting without any signal.
+    max_event_tokens: Annotated[
+        int | None,
+        Field(
+            description=(
+                "Reserved: not currently enforced — events are not evicted. Use max_context_tokens."
+            )
+        ),
+    ] = None
+    # Inert for the same reason: there is no eviction to preserve events from.
+    # Intended as the floor on recent events once event-level eviction lands.
     min_preserved_events: Annotated[
         int,
-        Field(description="Minimum number of recent events preserved during eviction"),
+        Field(
+            description=(
+                "Reserved: not currently enforced — events are not evicted. "
+                "Intended floor on recent events preserved once eviction lands."
+            )
+        ),
     ] = 5
     # Output-token planning reserve. When a call sets ``max_tokens``
     # explicitly, THAT value is reserved out of the model window (the provider

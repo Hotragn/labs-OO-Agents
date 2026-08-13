@@ -272,8 +272,15 @@ class TestTokenBudgetIntegration:
         assert result == "done"
 
     @pytest.mark.asyncio
-    async def test_max_event_tokens_does_not_crash_on_generation(self):
-        """Agent with max_event_tokens set should not raise ValueError during generation."""
+    async def test_max_event_tokens_is_accepted_but_inert(self):
+        """max_event_tokens is accepted and generation succeeds, but nothing reads it.
+
+        The field is documented as not currently enforced — there is no
+        event-level eviction, and the assembly-step eviction budgets from
+        ``max_context_tokens`` alone. The assertion below pins the current
+        behavior: setting it neither breaks generation nor changes the result.
+        It is not coverage of an event token budget, because there isn't one.
+        """
         from nooa.unifiedllm import FakeLLMClient
 
         llm = FakeLLMClient.with_tool_call("return_result", {"result": "summary"})
